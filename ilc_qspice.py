@@ -42,7 +42,7 @@ i_reference = (
 
 # initial voltage guess
 
-V_amp = 10
+V_amp = 3
 
 voltage = (
     V_amp *
@@ -53,11 +53,34 @@ voltage = (
 learning_rate = 0.5
 
 
+# -----------------------------------
+# THD FUNCTION
+# -----------------------------------
+
+def calculate_thd(signal, f, dt):
+
+    N = len(signal)
+    freqs = np.fft.rfftfreq(N, d=dt)
+    spectrum = np.abs(np.fft.rfft(signal)) / N
+
+    f1_idx = np.argmin(np.abs(freqs - f))
+    V1 = spectrum[f1_idx]
+
+    harmonics = []
+    for h in range(2, 10):
+        fh_idx = np.argmin(np.abs(freqs - h * f))
+        harmonics.append(spectrum[fh_idx])
+
+    thd = np.sqrt(sum(v**2 for v in harmonics)) / V1
+    return thd * 100  # percentage
+
+
 # store history
 
 error_history = []
 voltage_history = []
 current_history = []
+thd_history = []
 
 
 
@@ -123,7 +146,6 @@ for k in range(iterations):
     current = current[:len(t)]
 
 
-
     # -------------------------------
     # ERROR
     # -------------------------------
@@ -134,11 +156,11 @@ for k in range(iterations):
         current
     )
 
+    rms = np.sqrt(np.mean(error**2))
+    thd = calculate_thd(current, f, dt)
 
-    print(
-        "RMS error:",
-        np.sqrt(np.mean(error**2))
-    )
+    print(f"RMS error: {rms:.4f} A")
+    print(f"THD: {thd:.2f}%")
 
 
     # -------------------------------
@@ -152,12 +174,12 @@ for k in range(iterations):
     )
 
 
-
     # save data
 
     voltage_history.append(voltage.copy())
     current_history.append(current.copy())
     error_history.append(error.copy())
+    thd_history.append(thd)
 
 
 
@@ -265,23 +287,36 @@ plt.legend(
 plt.tight_layout()
 
 
-# RMS ERROR VS ITERATION
+# RMS + THD VS ITERATION
 
 rms_per_iteration = [
     np.sqrt(np.mean(e**2))
     for e in error_history
 ]
 
-plt.figure(figsize=(8, 4))
-plt.plot(
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
+
+ax1.plot(
     range(1, iterations + 1),
     rms_per_iteration,
     marker='o'
 )
-plt.title("RMS Error vs Iteration")
-plt.xlabel("Iteration")
-plt.ylabel("RMS Error (A)")
-plt.grid()
+ax1.set_title("RMS Error vs Iteration")
+ax1.set_xlabel("Iteration")
+ax1.set_ylabel("RMS Error (A)")
+ax1.grid()
+
+ax2.plot(
+    range(1, iterations + 1),
+    thd_history,
+    marker='s',
+    color='orange'
+)
+ax2.set_title("THD vs Iteration")
+ax2.set_xlabel("Iteration")
+ax2.set_ylabel("THD (%)")
+ax2.grid()
+
 plt.tight_layout()
 
 
