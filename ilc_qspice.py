@@ -24,12 +24,12 @@ runner.qsch_to_cir(
 # -----------------------------------
 
 f = 100
-iterations = 100
+rms_target = 0.02          # 2% RMS error target
+max_consecutive_fails = 8
+rms_improvement_tol = 1e-4
 
 dt = 1e-5
 t = np.arange(0, 1/f, dt)
-    
-rms_improvement_tol = 0.001
 
 
 # desired current
@@ -56,9 +56,9 @@ voltage = (
 # ADAPTIVE LEARNING RATE SETTINGS
 # -----------------------------------
 
-alpha = 0.5               # starting learning rate
+alpha = 0.3               # starting learning rate
 alpha_min = 0.01          # floor — never goes below this
-alpha_max = 0.95           # ceiling — never goes above this
+alpha_max = 0.5           # ceiling — never goes above this
 alpha_fail_factor = 0.7   # multiply alpha by this on failure
 alpha_recovery_factor = 1.01  # multiply alpha by this on success
 
@@ -110,11 +110,13 @@ max_consecutive_fails = 8
 # -----------------------------------
 # ILC LOOP
 # -----------------------------------
+k = 0
 
-for k in range(iterations):
+while True:
 
-    print(f"\nIteration {k+1}")
+    k += 1
 
+    print(f"\nIteration {k}")
 
     # -------------------------------
     # WRITE VOLTAGE FILE FOR QSPICE
@@ -178,11 +180,30 @@ for k in range(iterations):
     print(f"THD:       {thd:.2f}%")
     print(f"Alpha:     {alpha:.4f}")
 
+        # -------------------------------
+    # RMS TARGET CHECK
+    # -------------------------------
+
+    if rms <= rms_target:
+
+        print(
+            f"\nStopping early — RMS target reached "
+            f"({rms:.4f} A <= {rms_target:.4f} A)"
+        )
+
+        voltage_history.append(voltage.copy())
+        current_history.append(current.copy())
+        error_history.append(error.copy())
+        thd_history.append(thd)
+        rms_history.append(rms)
+        alpha_history.append(alpha)
+
+        break
 
     # -------------------------------
     # ACCEPT / REJECT
     # -------------------------------
-    
+
     if rms < rms_best - rms_improvement_tol:
 
         # improvement — accept
