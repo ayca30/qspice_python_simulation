@@ -24,10 +24,12 @@ runner.qsch_to_cir(
 # -----------------------------------
 
 f = 100
-iterations = 75
+iterations = 100
 
 dt = 1e-5
 t = np.arange(0, 1/f, dt)
+    
+rms_improvement_tol = 0.001
 
 
 # desired current
@@ -50,7 +52,15 @@ voltage = (
 )
 
 
-learning_rate = 0.5
+# -----------------------------------
+# ADAPTIVE LEARNING RATE SETTINGS
+# -----------------------------------
+
+alpha = 0.5               # starting learning rate
+alpha_min = 0.01          # floor — never goes below this
+alpha_max = 0.95           # ceiling — never goes above this
+alpha_fail_factor = 0.7   # multiply alpha by this on failure
+alpha_recovery_factor = 1.01  # multiply alpha by this on success
 
 
 # -----------------------------------
@@ -81,6 +91,19 @@ error_history = []
 voltage_history = []
 current_history = []
 thd_history = []
+rms_history = []
+alpha_history = []
+
+
+# -----------------------------------
+# ALGORITHM STATE
+# -----------------------------------
+
+rms_best = np.inf
+voltage_best = voltage.copy()
+error_best = np.zeros(len(t))
+consecutive_fails = 0
+max_consecutive_fails = 8
 
 
 
@@ -102,12 +125,10 @@ for k in range(iterations):
         "voltage.txt"
     )
 
-
     np.savetxt(
         voltage_file,
         np.column_stack((t, voltage))
     )
-
 
     print("Voltage file created")
 
@@ -115,7 +136,6 @@ for k in range(iterations):
     # -------------------------------
     # RUN QSPICE
     # -------------------------------
-
 
     cir_files = runner.generate_param_cir_files(
         [
@@ -129,9 +149,7 @@ for k in range(iterations):
         max_workers=1
     )[0]
 
-
     df = result["data"]
-
 
     time_sim = df.iloc[:,0].to_numpy()
 
@@ -140,16 +158,13 @@ for k in range(iterations):
         .to_numpy()
     )
 
-
     # match lengths
-
     current = current[:len(t)]
 
 
     # -------------------------------
     # ERROR
     # -------------------------------
-
 
     error = (
         i_reference -
@@ -160,17 +175,66 @@ for k in range(iterations):
     thd = calculate_thd(current, f, dt)
 
     print(f"RMS error: {rms:.4f} A")
-    print(f"THD: {thd:.2f}%")
+    print(f"THD:       {thd:.2f}%")
+    print(f"Alpha:     {alpha:.4f}")
+
+
+    # -------------------------------
+    # ACCEPT / REJECT
+    # -------------------------------
+    
+    if rms < rms_best - rms_improvement_tol:
+
+        # improvement — accept
+        rms_best = rms
+        voltage_best = voltage.copy()
+        error_best = error.copy()
+        consecutive_fails = 0
+
+        # alpha recovers slightly after success
+        old_alpha = alpha
+        alpha = min(alpha_max, alpha * alpha_recovery_factor)
+
+        print(
+            f"Accepted — new best RMS: {rms_best:.4f} A | "
+            f"alpha {old_alpha:.4f} -> {alpha:.4f}"
+        )
+
+    else:
+
+        # no improvement — reject, reduce alpha
+        consecutive_fails += 1
+        old_alpha = alpha
+        alpha = max(alpha_min, alpha * alpha_fail_factor)
+
+        print(
+            f"Rejected — best RMS still: {rms_best:.4f} A | "
+            f"alpha {old_alpha:.4f} -> {alpha:.4f} | "
+            f"fails: {consecutive_fails}/{max_consecutive_fails}"
+        )
+
+        # roll back to best voltage and use best error for next update
+        voltage = voltage_best.copy()
+        error = error_best.copy()
+
+        if consecutive_fails >= max_consecutive_fails:
+            print(f"\nStopping early — {max_consecutive_fails} consecutive failed updates.")
+            voltage_history.append(voltage.copy())
+            current_history.append(current.copy())
+            error_history.append(error.copy())
+            thd_history.append(thd)
+            rms_history.append(rms)
+            alpha_history.append(alpha)
+            break
 
 
     # -------------------------------
     # UPDATE VOLTAGE
     # -------------------------------
 
-
     voltage = (
-        voltage +
-        learning_rate*error
+        voltage_best +
+        alpha * error_best
     )
 
 
@@ -180,6 +244,8 @@ for k in range(iterations):
     current_history.append(current.copy())
     error_history.append(error.copy())
     thd_history.append(thd)
+    rms_history.append(rms)
+    alpha_history.append(alpha)
 
 
 
@@ -187,10 +253,12 @@ for k in range(iterations):
 # PLOTS
 # -----------------------------------
 
+actual_iterations = len(rms_history)
+
 # which iterations to plot
-indices = list(range(0, iterations, 3))
-if (iterations - 1) not in indices:
-    indices.append(iterations - 1)
+indices = list(range(0, actual_iterations, 3))
+if (actual_iterations - 1) not in indices:
+    indices.append(actual_iterations - 1)
 
 
 # CURRENT
@@ -212,13 +280,9 @@ plt.plot(
     label="Target"
 )
 
-plt.title(
-    "Current convergence during ILC"
-)
-
+plt.title("Current convergence during ILC")
 plt.xlabel("Time (s)")
 plt.ylabel("Current (A)")
-
 plt.grid()
 plt.legend(
     bbox_to_anchor=(1.05, 1),
@@ -241,13 +305,9 @@ for k in indices:
         label=f"Iteration {k+1}"
     )
 
-plt.title(
-    "Current waveform error"
-)
-
+plt.title("Current waveform error")
 plt.xlabel("Time (s)")
 plt.ylabel("Error (A)")
-
 plt.grid()
 plt.legend(
     bbox_to_anchor=(1.05, 1),
@@ -270,13 +330,9 @@ for k in indices:
         label=f"Iteration {k+1}"
     )
 
-plt.title(
-    "Voltage waveform updates"
-)
-
+plt.title("Voltage waveform updates")
 plt.xlabel("Time (s)")
 plt.ylabel("Voltage (V)")
-
 plt.grid()
 plt.legend(
     bbox_to_anchor=(1.05, 1),
@@ -287,18 +343,13 @@ plt.legend(
 plt.tight_layout()
 
 
-# RMS + THD VS ITERATION
+# RMS + THD + ALPHA VS ITERATION
 
-rms_per_iteration = [
-    np.sqrt(np.mean(e**2))
-    for e in error_history
-]
-
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
+fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(8, 8))
 
 ax1.plot(
-    range(1, iterations + 1),
-    rms_per_iteration,
+    range(1, actual_iterations + 1),
+    rms_history,
     marker='o'
 )
 ax1.set_title("RMS Error vs Iteration")
@@ -307,7 +358,7 @@ ax1.set_ylabel("RMS Error (A)")
 ax1.grid()
 
 ax2.plot(
-    range(1, iterations + 1),
+    range(1, actual_iterations + 1),
     thd_history,
     marker='s',
     color='orange'
@@ -316,6 +367,17 @@ ax2.set_title("THD vs Iteration")
 ax2.set_xlabel("Iteration")
 ax2.set_ylabel("THD (%)")
 ax2.grid()
+
+ax3.plot(
+    range(1, actual_iterations + 1),
+    alpha_history,
+    marker='^',
+    color='green'
+)
+ax3.set_title("Learning Rate (Alpha) vs Iteration")
+ax3.set_xlabel("Iteration")
+ax3.set_ylabel("Alpha")
+ax3.grid()
 
 plt.tight_layout()
 
