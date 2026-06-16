@@ -35,7 +35,7 @@ cir_files = runner.generate_param_cir_files(param_list)
 results = runner.run_batch(
     cir_files,
     signals=["I(L1)"],
-    max_workers=1
+    max_workers=4
 )
 
 

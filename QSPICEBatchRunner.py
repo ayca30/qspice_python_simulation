@@ -126,6 +126,17 @@ class QSPICEBatchRunner:
             os.makedirs(sim_dir, exist_ok=True)
             sim_cir_path = os.path.join(sim_dir, f"{base_name}.cir")
             shutil.copy2(cir_file, sim_cir_path)
+            # Copy PWL voltage file if it exists
+            voltage_file = os.path.join(
+                self.workdir,
+                "voltage.txt"
+            )
+
+            if os.path.exists(voltage_file):
+                shutil.copy2(
+                    voltage_file,
+                    os.path.join(sim_dir, "voltage.txt")
+                )
 
             # .dll-Dateien aus dem Quellordner kopieren
             source_dir = os.path.dirname(cir_file)
@@ -204,22 +215,22 @@ class QSPICEBatchRunner:
         Rückgabe: Liste von Ergebnis-Dictionaries
         """
         # 1. Parallel Simulationen starten
-        print("Starte Simulationen parallel ...")
+        print("Starting simulations in parallel..")
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             sim_futures = [executor.submit(self._sim_only, cf, idx)
                            for idx, cf in enumerate(cir_files)]
             sim_results = []
             for future in concurrent.futures.as_completed(sim_futures):
                 sim_results.append(future.result())
-        print("Alle Simulationen abgeschlossen.")
+        print("All simulations completed.")
 
         # 2. Ergebnisse sequentiell einsammeln
-        print("Sammle Ergebnisse ein ...")
+        print("Collecting results...")
         data_results = []
         for idx, cf in enumerate(cir_files):
             result = self._collect_data(cf, signals, idx)
             data_results.append(result)
-        print("Alle Ergebnisse eingesammelt.")
+        print("All results collected.")
         return data_results
 
     def clean(self, filetypes=('cir', 'qraw', 'png')):
