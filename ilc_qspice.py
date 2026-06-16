@@ -24,7 +24,7 @@ runner.qsch_to_cir(
 # -----------------------------------
 
 f = 100
-iterations = 50
+iterations = 75
 
 dt = 1e-5
 t = np.arange(0, 1/f, dt)
@@ -165,10 +165,17 @@ for k in range(iterations):
 # PLOTS
 # -----------------------------------
 
+# which iterations to plot
+indices = list(range(0, iterations, 3))
+if (iterations - 1) not in indices:
+    indices.append(iterations - 1)
+
+
+# CURRENT
+
 plt.figure(figsize=(12,5))
 
-
-for k in range(iterations):
+for k in indices:
 
     plt.plot(
         t,
@@ -176,14 +183,12 @@ for k in range(iterations):
         label=f"Iteration {k+1}"
     )
 
-
 plt.plot(
     t,
     i_reference,
     "k--",
     label="Target"
 )
-
 
 plt.title(
     "Current convergence during ILC"
@@ -206,15 +211,13 @@ plt.tight_layout()
 
 plt.figure(figsize=(12,5))
 
-
-for k in range(iterations):
+for k in indices:
 
     plt.plot(
         t,
         error_history[k],
         label=f"Iteration {k+1}"
     )
-
 
 plt.title(
     "Current waveform error"
@@ -237,15 +240,13 @@ plt.tight_layout()
 
 plt.figure(figsize=(12,5))
 
-
-for k in range(iterations):
+for k in indices:
 
     plt.plot(
         t,
         voltage_history[k],
         label=f"Iteration {k+1}"
     )
-
 
 plt.title(
     "Voltage waveform updates"
@@ -263,7 +264,9 @@ plt.legend(
 )
 plt.tight_layout()
 
+
 # RMS ERROR VS ITERATION
+
 rms_per_iteration = [
     np.sqrt(np.mean(e**2))
     for e in error_history
