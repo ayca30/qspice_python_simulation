@@ -24,7 +24,7 @@ runner.qsch_to_cir(
 # -----------------------------------
 
 f = 100
-iterations = 5
+iterations = 50
 
 dt = 1e-5
 t = np.arange(0, 1/f, dt)
@@ -100,16 +100,6 @@ for k in range(iterations):
         ]
     )
 
-
-    shutil.copy(
-        voltage_file,
-        os.path.join(
-            runner.workdir,
-            "run_0",
-            "voltage.txt"
-        )
-    )
-
     result = runner.run_batch(
         cir_files,
         signals=["I(L1)"],
@@ -175,7 +165,7 @@ for k in range(iterations):
 # PLOTS
 # -----------------------------------
 
-plt.figure(figsize=(10,5))
+plt.figure(figsize=(12,5))
 
 
 for k in range(iterations):
@@ -203,13 +193,18 @@ plt.xlabel("Time (s)")
 plt.ylabel("Current (A)")
 
 plt.grid()
-plt.legend()
-
+plt.legend(
+    bbox_to_anchor=(1.05, 1),
+    loc='upper left',
+    fontsize=7,
+    ncol=2
+)
+plt.tight_layout()
 
 
 # ERROR
 
-plt.figure(figsize=(10,5))
+plt.figure(figsize=(12,5))
 
 
 for k in range(iterations):
@@ -229,13 +224,18 @@ plt.xlabel("Time (s)")
 plt.ylabel("Error (A)")
 
 plt.grid()
-plt.legend()
-
+plt.legend(
+    bbox_to_anchor=(1.05, 1),
+    loc='upper left',
+    fontsize=7,
+    ncol=2
+)
+plt.tight_layout()
 
 
 # VOLTAGE
 
-plt.figure(figsize=(10,5))
+plt.figure(figsize=(12,5))
 
 
 for k in range(iterations):
@@ -255,8 +255,31 @@ plt.xlabel("Time (s)")
 plt.ylabel("Voltage (V)")
 
 plt.grid()
-plt.legend()
+plt.legend(
+    bbox_to_anchor=(1.05, 1),
+    loc='upper left',
+    fontsize=7,
+    ncol=2
+)
+plt.tight_layout()
 
+# RMS ERROR VS ITERATION
+rms_per_iteration = [
+    np.sqrt(np.mean(e**2))
+    for e in error_history
+]
+
+plt.figure(figsize=(8, 4))
+plt.plot(
+    range(1, iterations + 1),
+    rms_per_iteration,
+    marker='o'
+)
+plt.title("RMS Error vs Iteration")
+plt.xlabel("Iteration")
+plt.ylabel("RMS Error (A)")
+plt.grid()
+plt.tight_layout()
 
 
 plt.show()

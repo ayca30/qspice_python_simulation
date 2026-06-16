@@ -1,0 +1,6 @@
+* Controller_Test_PWL_ILC.qsch
+L1 N01 N02 L=10m ISAT =1 LSAT=10µ
+R1 0 N02 1
+V1 N01 0 PWL FILE="voltage.txt"
+.tran 0 0.05
+.end
