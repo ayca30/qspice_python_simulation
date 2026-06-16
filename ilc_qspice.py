@@ -2,6 +2,8 @@ from QSPICEBatchRunner import QSPICEBatchRunner
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import shutil
+
 
 
 # -----------------------------
@@ -98,8 +100,6 @@ for k in range(iterations):
         ]
     )
 
-
-    import shutil
 
     shutil.copy(
         voltage_file,
