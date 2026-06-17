@@ -46,22 +46,9 @@ i_reference = (
 
 V_amp = 3
 
-# FFT OF BEST VOLTAGE
-V_fft = np.fft.rfft(voltage_best)
-
-# FFT OF BEST ERROR
-E_fft = np.fft.rfft(error_best)
-
-# FFT UPDATE
-V_fft_new = (
-    V_fft +
-    alpha * E_fft
-)
-
-# BACK TO TIME DOMAIN
-voltage = np.fft.irfft(
-    V_fft_new,
-    n=len(voltage_best)
+voltage = (
+    V_amp *
+    np.sin(2*np.pi*f*t)
 )
 
 
@@ -306,14 +293,26 @@ while True:
             break
 
 
-    # -------------------------------
-    # UPDATE VOLTAGE
-    # -------------------------------
+# -----------------------------------
+# UPDATE VOLTAGE  (replace your single line)
+# -----------------------------------
 
-    voltage = (
-        voltage_best +
-        alpha * error_best
-    )
+    # FFT of error to identify which harmonics need more push
+    E_fft = np.fft.rfft(error_best)
+    freqs_fft = np.fft.rfftfreq(len(t), d=dt)
+
+    # Give harmonics (200Hz+) more gain than fundamental
+    # since 100Hz is basically solved, harmonics are the remaining error
+    harmonic_boost = np.ones(len(freqs_fft))
+    for h in range(2, 15):
+        fh = h * f
+        idx = np.argmin(np.abs(freqs_fft - fh))
+        harmonic_boost[idx] = 3.0   # boost harmonic bins specifically
+
+    correction_fft = alpha * harmonic_boost * E_fft
+    correction_time = np.fft.irfft(correction_fft, n=len(error_best))
+
+    voltage = voltage_best + correction_time
 
 
     # save data

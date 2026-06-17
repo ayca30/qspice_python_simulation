@@ -12,7 +12,7 @@ import shutil
 
 runner = QSPICEBatchRunner(
     basefile="Controller_Test_PWL_ILC",
-    workdir="ILC_test"
+    workdir="ILC_test_2"
 )
 
 runner.qsch_to_cir(
@@ -25,7 +25,7 @@ runner.qsch_to_cir(
 
 f = 100
 rms_target = 0.02          # 2% RMS error target
-max_consecutive_fails = 8
+max_consecutive_fails = 15
 rms_improvement_tol = 1e-4
 
 dt = 1e-5
@@ -46,22 +46,9 @@ i_reference = (
 
 V_amp = 3
 
-# FFT OF BEST VOLTAGE
-V_fft = np.fft.rfft(voltage_best)
-
-# FFT OF BEST ERROR
-E_fft = np.fft.rfft(error_best)
-
-# FFT UPDATE
-V_fft_new = (
-    V_fft +
-    alpha * E_fft
-)
-
-# BACK TO TIME DOMAIN
-voltage = np.fft.irfft(
-    V_fft_new,
-    n=len(voltage_best)
+voltage = (
+    V_amp *
+    np.sin(2*np.pi*f*t)
 )
 
 
@@ -70,7 +57,7 @@ voltage = np.fft.irfft(
 # -----------------------------------
 
 alpha = 0.3               # starting learning rate
-alpha_min = 0.01          # floor — never goes below this
+alpha_min = 0.005         # floor — never goes below this
 alpha_max = 0.5           # ceiling — never goes above this
 alpha_fail_factor = 0.7   # multiply alpha by this on failure
 alpha_recovery_factor = 1.01  # multiply alpha by this on success
@@ -160,7 +147,7 @@ rms_best = np.inf
 voltage_best = voltage.copy()
 error_best = np.zeros(len(t))
 consecutive_fails = 0
-max_consecutive_fails = 8
+max_consecutive_fails = 15
 
 
 
