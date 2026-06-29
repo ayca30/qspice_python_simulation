@@ -1,7 +1,0 @@
-* Test.qsch
-V2 N01 0 SIN 0 60 100
-L1 N01 N02 {LVAL} ISAT =5 SAT=10µ
-R1 0 N02 1
-.tran 30m
-.param LVAL  = 0.0393877551020408 
-.end

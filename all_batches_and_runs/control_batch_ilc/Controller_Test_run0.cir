@@ -1,7 +1,0 @@
-* Controller_Test.qsch
-V2 N01 0 SIN 0 {VAMP} 100
-L1 N01 N02 10m ISAT =5 SAT=10µ
-R1 0 N02 1
-.tran 30m
-.param VAMP  = 4.96823192869804 
-.end
