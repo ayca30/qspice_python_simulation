@@ -215,22 +215,22 @@ class QSPICEBatchRunner:
         Rückgabe: Liste von Ergebnis-Dictionaries
         """
         # 1. Parallel Simulationen starten
-        print("Starting simulations in parallel..")
+        #print("Starting simulations in parallel..")
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             sim_futures = [executor.submit(self._sim_only, cf, idx)
                            for idx, cf in enumerate(cir_files)]
             sim_results = []
             for future in concurrent.futures.as_completed(sim_futures):
                 sim_results.append(future.result())
-        print("All simulations completed.")
+        #print("All simulations completed.")
 
         # 2. Ergebnisse sequentiell einsammeln
-        print("Collecting results...")
+        #print("Collecting results...")
         data_results = []
         for idx, cf in enumerate(cir_files):
             result = self._collect_data(cf, signals, idx)
             data_results.append(result)
-        print("All results collected.")
+        #print("All results collected.")
         return data_results
 
     def clean(self, filetypes=('cir', 'qraw', 'png')):
